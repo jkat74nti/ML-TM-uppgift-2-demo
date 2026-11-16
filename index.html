@@ -1,1356 +1,838 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORBITAL ESCAPE // Röststyrd AI-Rymdraket</title>
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Google Fonts: Orbitron, Rajdhani & JetBrains Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- TensorFlow.js & Speech Commands (kompatibla versioner för Teachable Machine Audio) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.5.4/dist/speech-commands.min.js"></script>
-
-    <style>
-        :root {
-            --bg-space: #050811;
-            --panel-bg: rgba(10, 16, 30, 0.82);
-            --cyan-neon: #00f3ff;
-            --green-neon: #00ff88;
-            --red-alert: #ff2a5f;
-            --purple-neon: #a855f7;
-        }
-
-        body {
-            background-color: var(--bg-space);
-            color: #e2e8f0;
-            font-family: 'Rajdhani', sans-serif;
-            background-image: 
-                radial-gradient(circle at 12% 20%, rgba(0, 243, 255, 0.07) 0%, transparent 40%),
-                radial-gradient(circle at 88% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 45%),
-                linear-gradient(rgba(0, 243, 255, 0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 243, 255, 0.025) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
-            overflow-x: hidden;
-        }
-
-        .font-orbitron { font-family: 'Orbitron', sans-serif; }
-        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
-
-        /* Glasmorfism-paneler */
-        .sci-panel {
-            background: var(--panel-bg);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(0, 243, 255, 0.25);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 18px rgba(0, 243, 255, 0.04);
-        }
-
-        .drag-active {
-            border-color: var(--cyan-neon) !important;
-            background: rgba(0, 243, 255, 0.14) !important;
-            box-shadow: 0 0 24px rgba(0, 243, 255, 0.35);
-        }
-
-        /* Anpassade reglage (Range sliders) */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: #131c31;
-            border-radius: 999px;
-            border: 1px solid rgba(0, 243, 255, 0.35);
-        }
-        input[type=range]::-webkit-slider-thumb {
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: var(--cyan-neon);
-            cursor: pointer;
-            -webkit-appearance: none;
-            margin-top: -6px;
-            box-shadow: 0 0 12px var(--cyan-neon);
-        }
-
-        /* Sköldpuls runt rymdskeppet */
-        @keyframes pulseGlow {
-            0%, 100% { box-shadow: 0 0 15px rgba(0, 243, 255, 0.25); }
-            50% { box-shadow: 0 0 28px rgba(0, 243, 255, 0.55); }
-        }
-        .hud-glow {
-            animation: pulseGlow 3s infinite ease-in-out;
-        }
-
-        #gameCanvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            touch-action: none;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ROBO-NAV // Röststyrd AI-Robot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- TensorFlow.js & Speech Commands -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.5.4/dist/speech-commands.min.js"></script>
+  <!-- JSZip för direkt stöd av .zip-filer -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-cyan: #00f3ff;
+      --neon-green: #00ff88;
+      --neon-red: #ff2a5f;
+      --neon-amber: #ffae00;
+      --bg-dark: #060b14;
+      --panel-bg: rgba(12, 22, 38, 0.85);
+    }
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(0, 243, 255, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(0, 255, 136, 0.06) 0%, transparent 40%),
+        linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 100vh;
+    }
+    .font-sci { font-family: 'Orbitron', sans-serif; }
+    .sci-panel {
+      background: var(--panel-bg);
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.06), inset 0 0 15px rgba(0, 243, 255, 0.03);
+      backdrop-filter: blur(10px);
+    }
+    .sci-btn {
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .sci-btn:hover:not(:disabled) {
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .drop-zone.dragover {
+      border-color: var(--neon-green);
+      background: rgba(0, 255, 136, 0.1);
+    }
+    input[type="range"] { accent-color: var(--neon-cyan); }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="p-4 md:p-6">
 
-    <!-- TOPP-HEADER -->
-    <header class="border-b border-cyan-500/30 bg-[#050811]/90 backdrop-blur-md sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-400/50 flex items-center justify-center hud-glow">
-                    <span class="text-xl">🚀</span>
-                </div>
-                <div>
-                    <h1 class="font-orbitron text-lg sm:text-xl font-black tracking-wider text-cyan-400 flex items-center gap-2">
-                        ORBITAL ESCAPE
-                        <span class="text-[11px] px-2 py-0.5 rounded-md bg-cyan-950/90 text-cyan-300 border border-cyan-500/40 font-mono-tech">AI-RYMDRAKET</span>
-                    </h1>
-                    <p class="text-xs text-slate-400 tracking-wide">AKUSTISK NAVIGERING // GOOGLE TEACHABLE MACHINE AUDIO</p>
-                </div>
-            </div>
+  <!-- Header -->
+  <header class="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4">
+    <div>
+      <div class="flex items-center gap-3">
+        <span class="inline-block w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00f3ff]"></span>
+        <h1 class="font-sci text-2xl md:text-3xl font-black tracking-wider text-cyan-400">
+          ROBO-NAV <span class="text-slate-400 font-normal text-lg">// AI VOICE CONTROL</span>
+        </h1>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">TEACHABLE MACHINE AUDIO INTERFACE • RÖSTSTYRD AUTONOM ENHET</p>
+    </div>
+    <div id="globalStatus" class="px-3 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 text-xs font-semibold">
+      STATUS: VÄNTAR PÅ LJUDMODELL
+    </div>
+  </header>
 
-            <div class="flex items-center gap-2 sm:gap-3">
-                <!-- Diskret knapp för spelets egna ljudeffekter (AV som standard) -->
-                <button id="sfxToggleBtn" onclick="toggleSfx()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-slate-400 text-xs transition cursor-pointer" title="Spelets ljudeffekter (rekommenderas AV för att inte störa mikrofonen)">
-                    <span id="sfxIcon">🔇</span>
-                    <span id="sfxText" class="font-mono-tech">SFX: AV</span>
-                </button>
+  <!-- Main Grid -->
+  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                <!-- Elevguide -->
-                <button onclick="toggleHelpModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-200 text-xs sm:text-sm font-semibold transition cursor-pointer">
-                    <span>📘</span>
-                    <span>Instruktioner</span>
-                </button>
-            </div>
-        </div>
-    </header>
+    <!-- VÄNSTER KOLUMN: Modell & Inställningar -->
+    <div class="lg:col-span-5 space-y-5">
 
-    <!-- TOAST NOTIFIKATIONER -->
-    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
-
-    <!-- HUVUDINNEHÅLL -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <!-- =========================================================
-             VÄNSTERPANEL: KONTROLL & AI-KONFIGURATION (5 kolumner)
-             ========================================================= -->
-        <div class="lg:col-span-5 flex flex-col gap-5">
-
-            <!-- 1. LADDA IN LJUDMODELL -->
-            <section class="sci-panel rounded-2xl p-4 sm:p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="font-orbitron text-sm sm:text-base font-bold text-cyan-300 tracking-wider flex items-center gap-2">
-                        <span class="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center text-xs">1</span>
-                        LADDA IN LJUDMODELL
-                    </h2>
-                    <span id="modelStatusBadge" class="text-[11px] font-mono-tech px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/40">
-                        VÄNTAR PÅ MODELL
-                    </span>
-                </div>
-
-                <!-- Flikar -->
-                <div class="grid grid-cols-3 gap-1.5 bg-[#03050c] p-1 rounded-xl border border-slate-800 mb-4 text-xs sm:text-sm">
-                    <button id="tabFiles" onclick="switchLoadTab('files')" class="py-1.5 px-2 rounded-lg font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition cursor-pointer">
-                        📁 Filer (3 st)
-                    </button>
-                    <button id="tabUrl" onclick="switchLoadTab('url')" class="py-1.5 px-2 rounded-lg font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer">
-                        🔗 URL-länk
-                    </button>
-                    <button id="tabDemo" onclick="switchLoadTab('demo')" class="py-1.5 px-2 rounded-lg font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer">
-                        🎙️ Volym-demo
-                    </button>
-                </div>
-
-                <!-- FLIK A: LOKALA FILER (3 ST) -->
-                <div id="panelFiles" class="space-y-3">
-                    <div id="dropZone" class="border-2 border-dashed border-cyan-500/40 rounded-xl p-4 text-center bg-slate-950/60 hover:bg-slate-900/70 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
-                        <input type="file" id="fileInput" multiple accept=".json,.bin" class="hidden" onchange="handleFileSelect(event)">
-                        <div class="text-cyan-400 text-2xl mb-1">📂</div>
-                        <p class="text-sm font-semibold text-slate-200">Dra in eller klicka för att välja dina 3 modellfiler</p>
-                        <p class="text-xs text-slate-400 mt-1">Markera <code class="text-cyan-300">model.json</code>, <code class="text-cyan-300">weights.bin</code> & <code class="text-cyan-300">metadata.json</code> samtidigt</p>
-                    </div>
-
-                    <!-- Statusbrickor för de 3 filerna -->
-                    <div class="grid grid-cols-3 gap-2 text-xs font-mono-tech">
-                        <div id="badgeModelJson" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-500">
-                            <span class="truncate">model.json</span>
-                            <span>⏳</span>
-                        </div>
-                        <div id="badgeWeightsBin" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-500">
-                            <span class="truncate">weights.bin</span>
-                            <span>⏳</span>
-                        </div>
-                        <div id="badgeMetadataJson" class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-500">
-                            <span class="truncate">metadata.json</span>
-                            <span>⏳</span>
-                        </div>
-                    </div>
-
-                    <button id="activateFilesBtn" onclick="loadLocalAudioModel()" disabled class="w-full py-2.5 rounded-xl font-orbitron text-xs sm:text-sm font-bold tracking-wider bg-slate-800/80 text-slate-500 border border-slate-700 cursor-not-allowed transition">
-                        AKTIVERA UPPLADDAD MODELL
-                    </button>
-                </div>
-
-                <!-- FLIK B: DELBAR URL -->
-                <div id="panelUrl" class="hidden space-y-3">
-                    <p class="text-xs text-slate-300">Klistra in din delbara länk från Teachable Machine Audio Project:</p>
-                    <input type="text" id="modelUrlInput" placeholder="https://teachablemachine.withgoogle.com/models/XXXXXX/" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-cyan-500/40 text-sm text-cyan-100 focus:outline-none focus:border-cyan-400 font-mono-tech">
-                    <button onclick="loadUrlAudioModel()" class="w-full py-2.5 rounded-xl font-orbitron text-xs sm:text-sm font-bold tracking-wider bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(0,243,255,0.4)] transition cursor-pointer">
-                        HÄMTA MODELL FRÅN LÄNK
-                    </button>
-                </div>
-
-                <!-- FLIK C: VOLYM-DEMO -->
-                <div id="panelDemo" class="hidden space-y-3">
-                    <p class="text-xs text-slate-300 leading-relaxed">
-                        Saknar du en tränad modell? Aktivera <strong>Volym-demo</strong> för att testa spelet direkt med mikrofonens ljudnivå (prata, vissla eller klappa för att stiga uppåt).
-                    </p>
-                    <button onclick="activateVolumeDemo()" class="w-full py-2.5 rounded-xl font-orbitron text-xs sm:text-sm font-bold tracking-wider bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] transition cursor-pointer">
-                        STARTA VOLYM-DEMO
-                    </button>
-                </div>
-            </section>
-
-            <!-- 2. STYRNINGSREGLER -->
-            <section id="rulesSection" class="sci-panel rounded-2xl p-4 sm:p-5 opacity-50 pointer-events-none transition-opacity duration-300">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="font-orbitron text-sm sm:text-base font-bold text-cyan-300 tracking-wider flex items-center gap-2">
-                        <span class="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center text-xs">2</span>
-                        STYRNINGSREGLER
-                    </h2>
-                </div>
-
-                <!-- Dynamisk lista över modellens klasser -->
-                <div class="mb-4">
-                    <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                        Koppla varje ljudklass till en skeppsåtgärd:
-                    </div>
-                    <div id="classMappingContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                        <div class="text-xs text-slate-500 italic py-2">Ladda in en ljudmodell för att konfigurera klasser...</div>
-                    </div>
-                </div>
-
-                <!-- Reglage: Säkerhetskrav (Tröskelvärde) & Overlap-faktor -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-800/80">
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-slate-300 font-semibold">Säkerhetskrav (Tröskel):</span>
-                            <span id="thresholdValText" class="font-mono-tech text-cyan-400 font-bold">75%</span>
-                        </div>
-                        <input type="range" id="thresholdSlider" min="50" max="99" value="75" oninput="updateThreshold(this.value)" class="w-full">
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="text-slate-300 font-semibold">Overlap-faktor:</span>
-                            <span id="overlapValText" class="font-mono-tech text-cyan-400 font-bold">0.50</span>
-                        </div>
-                        <input type="range" id="overlapSlider" min="0.25" max="0.75" step="0.05" value="0.50" oninput="updateOverlap(this.value)" class="w-full" title="Styr hur ofta ljudmodellen analyserar mikrofonen">
-                    </div>
-                </div>
-            </section>
-
-            <!-- 3. AKUSTISK SENSOR (LIVE-UTSLAG) -->
-            <section class="sci-panel rounded-2xl p-4 sm:p-5 flex-1 flex flex-col">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="font-orbitron text-sm sm:text-base font-bold text-cyan-300 tracking-wider flex items-center gap-2">
-                        <span class="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center text-xs">3</span>
-                        AKUSTISK SENSOR (LIVE-UTSLAG)
-                    </h2>
-                    <button id="micActionBtn" onclick="toggleMicAndGame()" disabled class="px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed transition">
-                        🎙️ STARTA MICK & SPEL
-                    </button>
-                </div>
-
-                <!-- Mikrofon-vågform / nivåindikator -->
-                <div class="mb-3 p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-2 shrink-0">
-                        <span id="micLed" class="w-2.5 h-2.5 rounded-full bg-slate-600"></span>
-                        <span id="micStatusLabel" class="text-xs font-mono-tech text-slate-400">OFFLINE</span>
-                    </div>
-                    <!-- Liten visuell nivåmätare -->
-                    <div class="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                        <div id="micLevelBar" class="h-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-purple-500 w-0 transition-all duration-75"></div>
-                    </div>
-                </div>
-
-                <!-- Realtidsstaplar (0–100%) -->
-                <div class="flex-1 flex flex-col justify-between">
-                    <div class="flex justify-between text-[11px] font-mono-tech text-slate-400 mb-2">
-                        <span>KLASSIFICERING (REALTID)</span>
-                        <span>TRÖSKEL: <span id="thresholdMiniText" class="text-cyan-400">75%</span></span>
-                    </div>
-                    <div id="liveBarsContainer" class="space-y-2.5">
-                        <div class="text-xs text-slate-500 text-center py-6 bg-slate-950/50 rounded-xl border border-slate-800/80">
-                            Väntar på att en modell laddas och mikrofonen aktiveras...
-                        </div>
-                    </div>
-                </div>
-            </section>
+      <!-- 1. Ladda in modell -->
+      <section class="sci-panel rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-sci text-sm font-bold text-cyan-300 flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-xs">1</span>
+            LADDA IN LJUDMODELL
+          </h2>
+          <span id="modelBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">INGEN MODELL</span>
         </div>
 
-        <!-- =========================================================
-             HÖGERPANEL: SPELARENA - HTML5 CANVAS (7 kolumner)
-             ========================================================= -->
-        <div class="lg:col-span-7 flex flex-col gap-4">
-
-            <!-- HUD / TELEMETRI OVANFÖR SPELARENAN -->
-            <div class="sci-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 border-l-4 border-l-cyan-400">
-                <div class="flex items-center gap-5 sm:gap-7">
-                    <div>
-                        <div class="text-[11px] font-mono-tech text-slate-400 uppercase">POÄNG (SCORE)</div>
-                        <div id="scoreText" class="font-orbitron text-2xl sm:text-3xl font-black text-cyan-400">0</div>
-                    </div>
-                    <div class="h-9 w-px bg-slate-800"></div>
-                    <div>
-                        <div class="text-[11px] font-mono-tech text-slate-400 uppercase">REKORD (HIGH SCORE)</div>
-                        <div id="highScoreText" class="font-orbitron text-xl sm:text-2xl font-bold text-emerald-400">0</div>
-                    </div>
-                </div>
-
-                <!-- Aktivt detekterat kommando & Sköldstatus -->
-                <div class="flex items-center gap-2 sm:gap-3">
-                    <div id="shieldIndicator" class="hidden px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-400 text-purple-300 font-orbitron text-xs font-bold animate-pulse">
-                        🛡️ SKÖLD AKTIV
-                    </div>
-                    <div id="hudCommandPill" class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 font-orbitron text-xs font-bold text-slate-400">
-                        KOMMANDO: NEUTRAL
-                    </div>
-                </div>
-            </div>
-
-            <!-- CANVAS-ARENA -->
-            <div id="arenaContainer" class="relative flex-1 min-h-[420px] sm:min-h-[500px] rounded-2xl overflow-hidden border-2 border-cyan-500/35 bg-[#050811] shadow-[inset_0_0_60px_rgba(0,0,0,0.95)]">
-                <canvas id="gameCanvas"></canvas>
-
-                <!-- OVERLAY: STARTA UPPDRAG / GAME OVER -->
-                <div id="arenaOverlay" class="absolute inset-0 bg-[#050811]/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
-                    <div id="overlayEmoji" class="text-5xl mb-3">🚀</div>
-                    <h3 id="overlayHeading" class="font-orbitron text-2xl sm:text-3xl font-black text-cyan-400 tracking-wider">
-                        ORBITAL ESCAPE
-                    </h3>
-                    <p id="overlayDesc" class="text-sm text-slate-300 max-w-md mt-2 leading-relaxed">
-                        Ladda in din ljudmodell till vänster, ställ in vilka ljud som styr skeppet och starta mikrofonen för att flyga förbi asteroider och laserbarriärer!
-                    </p>
-                    <p class="text-xs font-mono-tech text-slate-400 mt-3">
-                        (Reservstyrning: Håll inne <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-cyan-300">Mellanslag</kbd> eller klicka på rutan)
-                    </p>
-                    <button id="overlayStartBtn" onclick="startMission()" class="mt-6 px-8 py-3.5 rounded-xl font-orbitron text-sm sm:text-base font-black tracking-widest bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 shadow-[0_0_25px_rgba(0,243,255,0.5)] transition transform hover:scale-105 cursor-pointer">
-                        ▶ STARTA UPPDRAG
-                    </button>
-                </div>
-            </div>
-
-            <!-- NEDRE KONTROLLRAD -->
-            <div class="sci-panel rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div class="flex items-center gap-2">
-                    <span class="text-slate-400 font-semibold">Fartläge:</span>
-                    <div class="flex bg-slate-950 p-1 rounded-lg border border-slate-800 font-mono-tech">
-                        <button id="btnSpeedSlow" onclick="setFlightSpeed('slow')" class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer">Långsam</button>
-                        <button id="btnSpeedNormal" onclick="setFlightSpeed('normal')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white cursor-pointer">Normal</button>
-                        <button id="btnSpeedFast" onclick="setFlightSpeed('fast')" class="px-2.5 py-1 rounded text-slate-400 hover:text-white cursor-pointer">Snabb</button>
-                    </div>
-                </div>
-
-                <button onclick="startMission()" class="px-4 py-1.5 rounded-xl font-orbitron font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 transition cursor-pointer">
-                    🔄 STARTA OM UPPDRAG
-                </button>
-            </div>
+        <!-- Flikar -->
+        <div class="grid grid-cols-3 gap-1.5 bg-slate-950/70 p-1 rounded-lg mb-4 text-xs">
+          <button onclick="switchTab('file')" id="tab-file" class="py-1.5 px-2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold">📁 Filer / ZIP</button>
+          <button onclick="switchTab('url')" id="tab-url" class="py-1.5 px-2 rounded text-slate-400 hover:text-slate-200">🔗 URL-länk</button>
+          <button onclick="switchTab('demo')" id="tab-demo" class="py-1.5 px-2 rounded text-slate-400 hover:text-slate-200">🎮 Testläge</button>
         </div>
-    </main>
 
-    <!-- INSTRUKTIONSMODAL -->
-    <div id="helpModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="sci-panel max-w-lg w-full rounded-2xl p-6 border border-cyan-400/50 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
-                <h3 class="font-orbitron text-lg font-bold text-cyan-400">📘 SÅ HÄR SPELAR DU MED DIN AI-MODELL</h3>
-                <button onclick="toggleHelpModal()" class="text-slate-400 hover:text-white text-xl cursor-pointer">✖</button>
-            </div>
-            <ol class="space-y-2.5 text-sm text-slate-200 list-decimal list-inside">
-                <li><strong>Träna i Teachable Machine:</strong> Välj <em>Audio Project</em>, spela in 20 sek <em>Background Noise</em> samt 20–25 prover för dina kommandon (t.ex. "Upp", "Ner" eller klapp).</li>
-                <li><strong>Ladda ner modellen:</strong> Klicka på <em>Export Model</em> -> <em>Tensorflow.js</em> -> <em>Download my model</em> och packa upp zip-filen.</li>
-                <li><strong>Ladda upp i Steg 1:</strong> Markera <code class="text-cyan-300">model.json</code>, <code class="text-cyan-300">weights.bin</code> och <code class="text-cyan-300">metadata.json</code> och dra in dem i rutan.</li>
-                <li><strong>Ställ in regler i Steg 2:</strong> Välj vilken åtgärd varje ljudklass ska utföra (t.ex. <em>Flyg UPP</em> eller <em>Boost / Sköld</em>).</li>
-                <li><strong>Starta i Steg 3:</strong> Klicka på <em>Starta mick & spel</em> och flyg förbi asteroider och laserbarriärer!</li>
-            </ol>
-            <div class="mt-6 text-right">
-                <button onclick="toggleHelpModal()" class="px-5 py-2 rounded-xl font-orbitron text-xs font-bold bg-cyan-400 text-slate-950 hover:bg-cyan-300 cursor-pointer">
-                    STÄNG
-                </button>
-            </div>
+        <!-- Flik: Filer / ZIP -->
+        <div id="panel-file">
+          <div id="dropZone" class="drop-zone border-2 border-dashed border-cyan-500/30 rounded-lg p-4 text-center cursor-pointer hover:border-cyan-400/60 transition" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" class="hidden" multiple accept=".json,.bin,.zip" onchange="handleFileSelect(event)" />
+            <div class="text-2xl mb-1">📦</div>
+            <p class="text-xs text-slate-200 font-semibold">Dra in din <span class="text-cyan-400">.zip-fil</span> eller välj alla <span class="text-cyan-400">3 filerna</span></p>
+            <p class="text-[11px] text-slate-400 mt-1">(model.json, weights.bin & metadata.json)</p>
+          </div>
+
+          <!-- Filindikatorer -->
+          <div class="grid grid-cols-3 gap-2 mt-3 text-[11px]">
+            <div id="badge-model" class="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 text-slate-500 truncate">model.json</div>
+            <div id="badge-weights" class="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 text-slate-500 truncate">weights.bin</div>
+            <div id="badge-meta" class="px-2 py-1 rounded bg-slate-900/90 border border-slate-700 text-slate-500 truncate">metadata.json</div>
+          </div>
+
+          <button id="btnActivateFiles" onclick="loadLocalAudioModel()" disabled class="sci-btn w-full mt-3 py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-sci text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed">
+            AKTIVERA UPPLADDAD MODELL
+          </button>
         </div>
+
+        <!-- Flik: URL -->
+        <div id="panel-url" class="hidden space-y-3">
+          <p class="text-xs text-slate-400">Klistra in din delbara länk från Teachable Machine (måste sluta med <code class="text-cyan-300">/</code>):</p>
+          <input type="text" id="modelUrlInput" placeholder="https://teachablemachine.withgoogle.com/models/..." class="w-full bg-slate-950 border border-cyan-500/30 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400" />
+          <button onclick="loadUrlAudioModel()" class="sci-btn w-full py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-sci text-xs font-bold">
+            LADDA FRÅN LÄNK
+          </button>
+        </div>
+
+        <!-- Flik: Testläge -->
+        <div id="panel-demo" class="hidden space-y-3">
+          <p class="text-xs text-slate-300">Ingen modell klar än? Testa banan direkt med piltangenterna eller knapparna nedan!</p>
+          <button onclick="activateDemoMode()" class="sci-btn w-full py-2.5 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-sci text-xs font-bold">
+            STARTA TESTLÄGE (TANGENTBORD)
+          </button>
+        </div>
+      </section>
+
+      <!-- 2. Styrningsregler & Klassmappning -->
+      <section class="sci-panel rounded-xl p-5">
+        <h2 class="font-sci text-sm font-bold text-cyan-300 flex items-center gap-2 mb-3">
+          <span class="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-xs">2</span>
+          KOMMANDOKOPPLING & KÄNSLIGHET
+        </h2>
+
+        <p class="text-[11px] text-slate-400 mb-3">Koppla dina ljudklasser till robotens kommandon:</p>
+
+        <div class="space-y-2 text-xs mb-4">
+          <div class="flex items-center justify-between gap-2 bg-slate-900/70 p-2 rounded border border-slate-800">
+            <span class="text-cyan-300 font-semibold">⬆️ UPP</span>
+            <select id="map-up" class="class-select bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 w-44 text-xs">
+              <option value="">-- Välj klass --</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between gap-2 bg-slate-900/70 p-2 rounded border border-slate-800">
+            <span class="text-cyan-300 font-semibold">⬇️ NED</span>
+            <select id="map-down" class="class-select bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 w-44 text-xs">
+              <option value="">-- Välj klass --</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between gap-2 bg-slate-900/70 p-2 rounded border border-slate-800">
+            <span class="text-cyan-300 font-semibold">⬅️ VÄNSTER</span>
+            <select id="map-left" class="class-select bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 w-44 text-xs">
+              <option value="">-- Välj klass --</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between gap-2 bg-slate-900/70 p-2 rounded border border-slate-800">
+            <span class="text-cyan-300 font-semibold">➡️ HÖGER</span>
+            <select id="map-right" class="class-select bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 w-44 text-xs">
+              <option value="">-- Välj klass --</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between gap-2 bg-slate-900/70 p-2 rounded border border-slate-800">
+            <span class="text-rose-400 font-semibold">🛑 STANNA</span>
+            <select id="map-stop" class="class-select bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 w-44 text-xs">
+              <option value="">-- Välj klass --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tröskelvärde -->
+        <div class="pt-2 border-t border-slate-800">
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-400">Säkerhetskrav (Tröskel):</span>
+            <span id="thresholdVal" class="text-cyan-400 font-bold">80%</span>
+          </div>
+          <input type="range" id="thresholdSlider" min="50" max="99" value="80" class="w-full" oninput="document.getElementById('thresholdVal').textContent = this.value + '%'" />
+        </div>
+      </section>
+
+      <!-- 3. Mikrofon & Live-staplar -->
+      <section class="sci-panel rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-sci text-sm font-bold text-cyan-300 flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-xs">3</span>
+            LJUDSENSOR (MIKROFON)
+          </h2>
+          <button id="btnToggleMic" onclick="toggleListening()" disabled class="sci-btn px-3 py-1.5 rounded bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-sci text-[11px] font-bold disabled:opacity-40 disabled:cursor-not-allowed">
+            🎙️ STARTA MIKROFON
+          </button>
+        </div>
+
+        <div id="predictionBars" class="space-y-2 text-xs">
+          <p class="text-slate-500 italic text-[11px]">Ladda in en modell för att se ljudnivåer per klass...</p>
+        </div>
+      </section>
+
     </div>
 
-    <!-- =========================================================
-         JAVASCRIPT: TENSORFLOW SPEECH-COMMANDS & CANVAS SPELMOTOR
-         ========================================================= -->
-    <script>
-        // ---------------------------------------------------------
-        // 1. GLOBALA VARIABLER & TILLSTÅND
-        // ---------------------------------------------------------
-        let recognizer = null;
-        let isListening = false;
-        let isVolumeDemo = false;
-        let classLabels = [];
+    <!-- HÖGER KOLUMN: Robotarena -->
+    <div class="lg:col-span-7 flex flex-col gap-5">
+      <section class="sci-panel rounded-xl p-5 flex-1 flex flex-col">
+        <!-- Topp-bar i arenan -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-cyan-500/20">
+          <div>
+            <span class="text-[10px] text-slate-400 block">AKTIVT KOMMANDO</span>
+            <span id="activeCommandDisplay" class="font-sci text-lg font-bold text-amber-400">STANNA (VÄNTAR)</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs">
+            <div class="bg-slate-900/90 px-3 py-1.5 rounded border border-slate-700">
+              <span class="text-slate-400">KRISTALLER:</span>
+              <span id="crystalCount" class="text-cyan-400 font-bold ml-1">0 / 3</span>
+            </div>
+            <div class="bg-slate-900/90 px-3 py-1.5 rounded border border-slate-700">
+              <span class="text-slate-400">BANA:</span>
+              <span id="levelDisplay" class="text-emerald-400 font-bold ml-1">1</span>
+            </div>
+            <button onclick="resetLevel()" class="sci-btn px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs">
+              🔄 ÅTERSTÄLL
+            </button>
+          </div>
+        </div>
 
-        // Uppladdade lokala filer
-        let selectedFiles = { model: null, weights: null, metadata: null };
+        <!-- Canvas -->
+        <div class="relative flex-1 flex items-center justify-center bg-slate-950/90 rounded-lg border border-cyan-500/30 overflow-hidden p-2">
+          <canvas id="arenaCanvas" width="600" height="450" class="max-w-full h-auto rounded"></canvas>
+          
+          <!-- Vinst-overlay -->
+          <div id="winOverlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6">
+            <div class="text-4xl mb-2">🏆</div>
+            <h3 class="font-sci text-2xl font-black text-emerald-400 mb-1">UPPDRAG SLUTFÖRT!</h3>
+            <p class="text-xs text-slate-300 mb-4">Roboten har nått laddningsstationen säkert.</p>
+            <button onclick="nextLevel()" class="sci-btn px-5 py-2.5 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-sci text-xs font-bold">
+              NÄSTA SEKTOR ➡️
+            </button>
+          </div>
+        </div>
 
-        // Mappning från klassnamn -> åtgärd ('NEUTRAL', 'UP', 'DOWN', 'SHIELD')
-        let classActions = {};
-        let confidenceThreshold = 0.75;
-        let overlapFactor = 0.50;
+        <!-- Manuella kontrollknappar -->
+        <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-800">
+          <p class="text-[11px] text-slate-400">
+            Tips: Roboten fortsätter i vald riktning tills du säger <span class="text-rose-400 font-semibold">Stanna</span> eller byter håll.
+          </p>
+          <div class="flex items-center gap-1.5">
+            <button onclick="setRobotDirection('LEFT')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-cyan-900/50 border border-slate-700 text-xs">⬅️</button>
+            <button onclick="setRobotDirection('UP')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-cyan-900/50 border border-slate-700 text-xs">⬆️</button>
+            <button onclick="setRobotDirection('STOP')" class="px-3 py-1.5 rounded bg-rose-950/60 hover:bg-rose-900/60 border border-rose-700/50 text-rose-300 text-xs font-bold">🛑</button>
+            <button onclick="setRobotDirection('DOWN')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-cyan-900/50 border border-slate-700 text-xs">⬇️</button>
+            <button onclick="setRobotDirection('RIGHT')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-cyan-900/50 border border-slate-700 text-xs">➡️</button>
+          </div>
+        </div>
+      </section>
+    </div>
 
-        // Aktiva styrkommandon
-        let activeAction = 'NEUTRAL'; // 'NEUTRAL', 'UP', 'DOWN', 'SHIELD'
-        let shieldTimerMs = 0;
-        let manualThrust = false;
+  </main>
 
-        // Ljudnivå-mätare & Volym-demo (Web Audio API)
-        let micStream = null;
-        let audioMeterCtx = null;
-        let audioAnalyser = null;
-        let meterAnimId = null;
+  <script>
+    // ==========================================
+    // 1. TENSORFLOW.JS CUSTOM LOAD ROUTER (local-tm://)
+    // ==========================================
+    let localModelPayload = null;
 
-        // Spelets egna ljudeffekter (SFX) - AV som standard
-        let sfxEnabled = false;
-        let sfxAudioCtx = null;
-
-        // ---------------------------------------------------------
-        // 2. NOTIFIKATIONER & FLIKAR
-        // ---------------------------------------------------------
-        function showToast(msg, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const el = document.createElement('div');
-            const styles = {
-                info: 'border-cyan-400 bg-slate-900/95 text-cyan-200',
-                success: 'border-emerald-400 bg-emerald-950/95 text-emerald-200',
-                error: 'border-rose-500 bg-rose-950/95 text-rose-200'
-            };
-            el.className = `pointer-events-auto px-4 py-3 rounded-xl border-l-4 shadow-2xl text-xs sm:text-sm font-medium transition-all duration-300 ${styles[type] || styles.info}`;
-            el.textContent = msg;
-            container.appendChild(el);
-            setTimeout(() => {
-                el.style.opacity = '0';
-                setTimeout(() => el.remove(), 300);
-            }, 4200);
-        }
-
-        function toggleHelpModal() {
-            document.getElementById('helpModal').classList.toggle('hidden');
-        }
-
-        function toggleSfx() {
-            sfxEnabled = !sfxEnabled;
-            const btn = document.getElementById('sfxToggleBtn');
-            const icon = document.getElementById('sfxIcon');
-            const text = document.getElementById('sfxText');
-            if (sfxEnabled) {
-                icon.textContent = '🔊';
-                text.textContent = 'SFX: PÅ';
-                btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/50 text-cyan-300 text-xs transition cursor-pointer";
-                playSfx(660, 'sine', 0.08, 0.05);
-            } else {
-                icon.textContent = '🔇';
-                text.textContent = 'SFX: AV';
-                btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-400 text-xs transition cursor-pointer";
+    if (typeof tf !== 'undefined' && tf.io && tf.io.registerLoadRouter) {
+      tf.io.registerLoadRouter((url) => {
+        if (typeof url === 'string' && url.startsWith('local-tm://')) {
+          return {
+            load: async () => {
+              if (!localModelPayload) {
+                throw new Error('Ingen lokal modell har laddats in i minnet.');
+              }
+              return localModelPayload;
             }
+          };
         }
+        return null;
+      });
+    }
 
-        function playSfx(freq, type = 'sine', duration = 0.12, vol = 0.05) {
-            if (!sfxEnabled) return;
-            try {
-                if (!sfxAudioCtx) sfxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (sfxAudioCtx.state === 'suspended') sfxAudioCtx.resume();
-                const osc = sfxAudioCtx.createOscillator();
-                const gain = sfxAudioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, sfxAudioCtx.currentTime);
-                gain.gain.setValueAtTime(vol, sfxAudioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, sfxAudioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(sfxAudioCtx.destination);
-                osc.start();
-                osc.stop(sfxAudioCtx.currentTime + duration);
-            } catch (e) {}
-        }
+    // ==========================================
+    // 2. FILHANTERING (.ZIP & 3 SEPARATA FILER)
+    // ==========================================
+    let selectedFiles = { model: null, weights: null, metadata: null };
 
-        function switchLoadTab(tab) {
-            ['files', 'url', 'demo'].forEach(t => {
-                const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
-                const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
-                if (t === tab) {
-                    btn.className = "py-1.5 px-2 rounded-lg font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition cursor-pointer";
-                    panel.classList.remove('hidden');
-                } else {
-                    btn.className = "py-1.5 px-2 rounded-lg font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer";
-                    panel.classList.add('hidden');
-                }
-            });
-        }
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processUploadedFiles(e.dataTransfer.files);
+      }
+    });
 
-        // ---------------------------------------------------------
-        // 3. FILUPPLADDNING & DRAG-AND-DROP
-        // ---------------------------------------------------------
-        const dropZone = document.getElementById('dropZone');
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
-            dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }, false);
-        });
-        ['dragenter', 'dragover'].forEach(ev => {
-            dropZone.addEventListener(ev, () => dropZone.classList.add('drag-active'), false);
-        });
-        ['dragleave', 'drop'].forEach(ev => {
-            dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-active'), false);
-        });
-        dropZone.addEventListener('drop', e => collectFiles(e.dataTransfer.files));
+    window.handleFileSelect = function(event) {
+      if (event.target.files && event.target.files.length > 0) {
+        processUploadedFiles(event.target.files);
+      }
+    };
 
-        function handleFileSelect(event) {
-            collectFiles(event.target.files);
-        }
+    async function processUploadedFiles(fileList) {
+      const files = Array.from(fileList);
 
-        function collectFiles(fileList) {
-            for (let i = 0; i < fileList.length; i++) {
-                const f = fileList[i];
-                const name = f.name.toLowerCase();
-                if (name.includes('model') && name.endsWith('.json')) {
-                    selectedFiles.model = f;
-                } else if (name.endsWith('.bin')) {
-                    selectedFiles.weights = f;
-                } else if (name.includes('metadata') && name.endsWith('.json')) {
-                    selectedFiles.metadata = f;
-                }
+      // Kolla om användaren laddade upp en .zip-fil
+      const zipFile = files.find(f => f.name.toLowerCase().endsWith('.zip'));
+      if (zipFile) {
+        try {
+          const zip = await JSZip.loadAsync(zipFile);
+          for (const [filename, fileObj] of Object.entries(zip.files)) {
+            if (fileObj.dir) continue;
+            const cleanName = filename.split('/').pop().toLowerCase();
+            if (cleanName === 'model.json') {
+              const text = await fileObj.async('text');
+              selectedFiles.model = new File([text], 'model.json', { type: 'application/json' });
+            } else if (cleanName.endsWith('.bin')) {
+              const buf = await fileObj.async('arraybuffer');
+              selectedFiles.weights = new File([buf], cleanName, { type: 'application/octet-stream' });
+            } else if (cleanName === 'metadata.json') {
+              const text = await fileObj.async('text');
+              selectedFiles.metadata = new File([text], 'metadata.json', { type: 'application/json' });
             }
-            updateFileBadges();
+          }
+        } catch (err) {
+          alert('Kunde inte läsa zip-filen: ' + err.message);
+        }
+      } else {
+        // Enskilda filer
+        for (const f of files) {
+          const name = f.name.toLowerCase();
+          if (name === 'model.json') selectedFiles.model = f;
+          else if (name.endsWith('.bin')) selectedFiles.weights = f;
+          else if (name === 'metadata.json') selectedFiles.metadata = f;
+        }
+      }
+
+      updateFileBadges();
+    }
+
+    function updateFileBadges() {
+      const setBadge = (id, ok, label) => {
+        const el = document.getElementById(id);
+        if (ok) {
+          el.className = 'px-2 py-1 rounded bg-emerald-950/70 border border-emerald-500/60 text-emerald-300 truncate font-semibold';
+          el.textContent = '✓ ' + label;
+        } else {
+          el.className = 'px-2 py-1 rounded bg-slate-900/90 border border-slate-700 text-slate-500 truncate';
+          el.textContent = label;
+        }
+      };
+
+      setBadge('badge-model', !!selectedFiles.model, 'model.json');
+      setBadge('badge-weights', !!selectedFiles.weights, 'weights.bin');
+      setBadge('badge-meta', !!selectedFiles.metadata, 'metadata.json');
+
+      const allReady = selectedFiles.model && selectedFiles.weights && selectedFiles.metadata;
+      document.getElementById('btnActivateFiles').disabled = !allReady;
+    }
+
+    // ==========================================
+    // 3. LJUDMODELL & KLASSIFICERING
+    // ==========================================
+    let recognizer = null;
+    let isListening = false;
+    let modelLabels = [];
+
+    async function loadLocalAudioModel() {
+      if (!selectedFiles.model || !selectedFiles.weights || !selectedFiles.metadata) return;
+      setGlobalStatus('LADDAR MODELL...', 'amber');
+
+      try {
+        if (isListening && recognizer) {
+          await recognizer.stopListening();
+          isListening = false;
         }
 
-        function updateFileBadges() {
-            const renderBadge = (id, file, label) => {
-                const el = document.getElementById(id);
-                if (file) {
-                    el.className = "p-2 rounded-lg bg-emerald-950/70 border border-emerald-400/60 flex items-center justify-between text-emerald-300";
-                    el.innerHTML = `<span class="truncate">${label}</span><span>✅</span>`;
-                } else {
-                    el.className = "p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-slate-500";
-                    el.innerHTML = `<span class="truncate">${label}</span><span>⏳</span>`;
-                }
-            };
+        const modelJson = JSON.parse(await selectedFiles.model.text());
+        const metadataJson = JSON.parse(await selectedFiles.metadata.text());
+        const weightData = await selectedFiles.weights.arrayBuffer();
 
-            renderBadge('badgeModelJson', selectedFiles.model, 'model.json');
-            renderBadge('badgeWeightsBin', selectedFiles.weights, 'weights.bin');
-            renderBadge('badgeMetadataJson', selectedFiles.metadata, 'metadata.json');
-
-            const btn = document.getElementById('activateFilesBtn');
-            if (selectedFiles.model && selectedFiles.weights && selectedFiles.metadata) {
-                btn.disabled = false;
-                btn.className = "w-full py-2.5 rounded-xl font-orbitron text-xs sm:text-sm font-bold tracking-wider bg-cyan-400 hover:bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(0,243,255,0.45)] transition cursor-pointer";
+        let weightSpecs = [];
+        if (Array.isArray(modelJson.weightsManifest)) {
+          for (const group of modelJson.weightsManifest) {
+            if (Array.isArray(group.weights)) {
+              weightSpecs = weightSpecs.concat(group.weights);
             }
+          }
         }
 
-        // ---------------------------------------------------------
-        // 4. LADDNING AV LJUDMODELL (BUGGFIX MED tf.io.browserFiles)
-        // ---------------------------------------------------------
-        async function loadLocalAudioModel() {
-            if (!selectedFiles.model || !selectedFiles.weights || !selectedFiles.metadata) {
-                showToast("Välj alla tre filerna: model.json, weights.bin och metadata.json.", "error");
-                return;
-            }
-
-            try {
-                await stopMicrophone();
-                isVolumeDemo = false;
-                setModelStatus("LADDAR MODELL...", "bg-cyan-500/20 text-cyan-300 border-cyan-400 animate-pulse");
-
-                // 1. Läs in och parsa metadata.json till ett rent JavaScript-objekt
-                const metadataText = await selectedFiles.metadata.text();
-                const metadataJson = JSON.parse(metadataText);
-
-                // 2. Skapa en TensorFlow.js IOHandler av model.json och weights.bin
-                const modelIO = tf.io.browserFiles([selectedFiles.model, selectedFiles.weights]);
-
-                // 3. Skicka IOHandler och metadata-objektet direkt till speechCommands.create()
-                // Detta undviker helt "Unsupported URL scheme in metadata URL: blob:..."
-                recognizer = speechCommands.create('BROWSER_FFT', undefined, modelIO, metadataJson);
-                await recognizer.ensureModelLoaded();
-
-                onModelActivated("LOKAL MODELL AKTIV");
-            } catch (err) {
-                console.error("Fel vid laddning av lokal ljudmodell:", err);
-                showToast("Kunde inte ladda ljudmodellen: " + err.message, "error");
-                setModelStatus("FEL VID LADDNING", "bg-rose-500/20 text-rose-300 border-rose-500/40");
-            }
-        }
-
-        async function loadUrlAudioModel() {
-            let url = document.getElementById('modelUrlInput').value.trim();
-            if (!url) {
-                showToast("Klistra in en giltig Teachable Machine-länk först.", "error");
-                return;
-            }
-            if (!url.endsWith('/')) url += '/';
-
-            try {
-                await stopMicrophone();
-                isVolumeDemo = false;
-                setModelStatus("HÄMTAR MODELL...", "bg-cyan-500/20 text-cyan-300 border-cyan-400 animate-pulse");
-
-                recognizer = speechCommands.create('BROWSER_FFT', undefined, url + 'model.json', url + 'metadata.json');
-                await recognizer.ensureModelLoaded();
-
-                onModelActivated("MOLNMODELL AKTIV");
-            } catch (err) {
-                console.error("Fel vid URL-laddning:", err);
-                showToast("Kunde inte hämta modellen från länken. Kontrollera att den är publik.", "error");
-                setModelStatus("FEL VID HÄMTNING", "bg-rose-500/20 text-rose-300 border-rose-500/40");
-            }
-        }
-
-        async function activateVolumeDemo() {
-            await stopMicrophone();
-            recognizer = null;
-            isVolumeDemo = true;
-            classLabels = ["Röst / Ljud (Stig upp)", "Tystnad (Bakgrund)"];
-
-            setupClassMappings(classLabels);
-            setupLiveBars(classLabels);
-
-            setModelStatus("VOLYM-DEMO AKTIV", "bg-purple-500/20 text-purple-300 border-purple-400/50");
-            enableControlsAndMicButton("🎙️ STARTA VOLYM-DEMO & SPEL");
-            showToast("Volym-demo redo! Klicka på 'Starta volym-demo & spel' för att styra med rösten.", "success");
-        }
-
-        function setModelStatus(text, badgeClasses) {
-            const badge = document.getElementById('modelStatusBadge');
-            badge.className = `text-[11px] font-mono-tech px-2.5 py-0.5 rounded-full border ${badgeClasses}`;
-            badge.textContent = text;
-        }
-
-        function onModelActivated(statusLabel) {
-            classLabels = recognizer.wordLabels();
-            setupClassMappings(classLabels);
-            setupLiveBars(classLabels);
-
-            setModelStatus(statusLabel, "bg-emerald-500/20 text-emerald-300 border-emerald-400/50");
-            enableControlsAndMicButton("🎙️ STARTA MICK & SPEL");
-            showToast(`Modell aktiverad med ${classLabels.length} klasser! Kontrollera styrningsreglerna och starta micken.`, "success");
-        }
-
-        function enableControlsAndMicButton(btnText) {
-            document.getElementById('rulesSection').classList.remove('opacity-50', 'pointer-events-none');
-            const btn = document.getElementById('micActionBtn');
-            btn.disabled = false;
-            btn.textContent = btnText;
-            btn.className = "px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-[0_0_15px_rgba(0,255,136,0.4)] transition cursor-pointer";
-        }
-
-        // ---------------------------------------------------------
-        // 5. STYRNINGSREGLER & REGLAGE
-        // ---------------------------------------------------------
-        function setupClassMappings(labels) {
-            const container = document.getElementById('classMappingContainer');
-            container.innerHTML = '';
-            classActions = {};
-
-            let assignedUp = false;
-            let assignedDown = false;
-
-            labels.forEach((label, idx) => {
-                const lower = label.toLowerCase();
-                const isNoise = lower.includes('background') || lower.includes('bakgrund') || lower.includes('noise') || lower.includes('tystnad');
-                const isDownWord = lower.includes('ner') || lower.includes('down') || lower.includes('dyk');
-                const isShieldWord = lower.includes('sköld') || lower.includes('shield') || lower.includes('boost');
-
-                let defaultAction = 'NEUTRAL';
-                if (!isNoise) {
-                    if (isShieldWord) {
-                        defaultAction = 'SHIELD';
-                    } else if (isDownWord && !assignedDown) {
-                        defaultAction = 'DOWN';
-                        assignedDown = true;
-                    } else if (!assignedUp) {
-                        defaultAction = 'UP';
-                        assignedUp = true;
-                    } else if (!assignedDown) {
-                        defaultAction = 'DOWN';
-                        assignedDown = true;
-                    }
-                }
-
-                classActions[label] = defaultAction;
-
-                const row = document.createElement('div');
-                row.className = "flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-950/90 border border-slate-800";
-                row.innerHTML = `
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-[10px] font-mono-tech px-1.5 py-0.5 rounded bg-slate-900 text-slate-400">K${idx + 1}</span>
-                        <span class="text-sm font-semibold text-slate-200 truncate" title="${label}">${label}</span>
-                    </div>
-                    <select onchange="changeClassAction('${label.replace(/'/g, "\\'")}', this.value)" class="px-2 py-1 rounded-lg bg-slate-900 border border-cyan-500/30 text-xs font-semibold text-cyan-200 focus:outline-none cursor-pointer">
-                        <option value="NEUTRAL" ${defaultAction === 'NEUTRAL' ? 'selected' : ''}>Neutral / Ingen åtgärd</option>
-                        <option value="UP" ${defaultAction === 'UP' ? 'selected' : ''}>🚀 Flyg UPP (Thrust)</option>
-                        <option value="DOWN" ${defaultAction === 'DOWN' ? 'selected' : ''}>⬇️ Flyg NER (Dive)</option>
-                        <option value="SHIELD" ${defaultAction === 'SHIELD' ? 'selected' : ''}>🛡️ Boost / Sköld</option>
-                    </select>
-                `;
-                container.appendChild(row);
-            });
-        }
-
-        function changeClassAction(label, action) {
-            classActions[label] = action;
-        }
-
-        function updateThreshold(val) {
-            confidenceThreshold = parseInt(val) / 100;
-            document.getElementById('thresholdValText').textContent = val + '%';
-            document.getElementById('thresholdMiniText').textContent = val + '%';
-        }
-
-        function updateOverlap(val) {
-            overlapFactor = parseFloat(val);
-            document.getElementById('overlapValText').textContent = overlapFactor.toFixed(2);
-            if (isListening && recognizer) {
-                restartSpeechListening();
-            }
-        }
-
-        function setupLiveBars(labels) {
-            const container = document.getElementById('liveBarsContainer');
-            container.innerHTML = '';
-
-            labels.forEach((label, idx) => {
-                const row = document.createElement('div');
-                row.className = "space-y-1";
-                row.innerHTML = `
-                    <div class="flex justify-between text-xs font-mono-tech">
-                        <span class="text-slate-200 font-semibold truncate max-w-[75%]">${label}</span>
-                        <span id="barPct-${idx}" class="text-cyan-400">0%</span>
-                    </div>
-                    <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                        <div id="barFill-${idx}" class="h-full bg-cyan-500 transition-all duration-75" style="width: 0%"></div>
-                    </div>
-                `;
-                container.appendChild(row);
-            });
-        }
-
-        // ---------------------------------------------------------
-        // 6. MIKROFON, VÅGFORM & REALTIDSKLASSIFICERING
-        // ---------------------------------------------------------
-        async function toggleMicAndGame() {
-            if (isListening) {
-                await stopMicrophone();
-            } else {
-                await startMicrophone();
-                if (gameState !== 'PLAYING') {
-                    startMission();
-                }
-            }
-        }
-
-        async function startMicrophone() {
-            const btn = document.getElementById('micActionBtn');
-            btn.disabled = true;
-            btn.textContent = "⏳ ANSLUTER...";
-
-            try {
-                // Starta visuell mikrofon-nivåmätare (och ev. volym-demo)
-                await startAudioLevelMeter();
-
-                if (!isVolumeDemo && recognizer) {
-                    await recognizer.listen(result => {
-                        processScores(result.scores);
-                    }, {
-                        includeSpectrogram: false,
-                        probabilityThreshold: 0.25,
-                        invokeCallbackOnNoiseAndUnknown: true,
-                        overlapFactor: overlapFactor
-                    });
-                }
-
-                isListening = true;
-                btn.disabled = false;
-                btn.textContent = "⏹ STOPPA MICK";
-                btn.className = "px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer";
-
-                document.getElementById('micLed').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#00ff88] animate-ping";
-                document.getElementById('micStatusLabel').textContent = "LYSSNAR LIVE";
-                document.getElementById('micStatusLabel').className = "text-xs font-mono-tech text-emerald-300";
-            } catch (err) {
-                console.error("Mikrofonfel:", err);
-                showToast("Kunde inte starta mikrofonen. Tillåt mikrofonåtkomst i webbläsaren!", "error");
-                btn.disabled = false;
-                btn.textContent = "🎙️ STARTA MICK & SPEL";
-            }
-        }
-
-        async function restartSpeechListening() {
-            if (recognizer && recognizer.isListening()) {
-                await recognizer.stopListening();
-                await recognizer.listen(result => {
-                    processScores(result.scores);
-                }, {
-                    includeSpectrogram: false,
-                    probabilityThreshold: 0.25,
-                    invokeCallbackOnNoiseAndUnknown: true,
-                    overlapFactor: overlapFactor
-                });
-            }
-        }
-
-        async function stopMicrophone() {
-            if (recognizer && recognizer.isListening()) {
-                try { await recognizer.stopListening(); } catch (e) {}
-            }
-            if (meterAnimId) {
-                cancelAnimationFrame(meterAnimId);
-                meterAnimId = null;
-            }
-            if (micStream) {
-                micStream.getTracks().forEach(t => t.stop());
-                micStream = null;
-            }
-            isListening = false;
-            activeAction = 'NEUTRAL';
-            updateHudCommand('NEUTRAL');
-
-            document.getElementById('micLevelBar').style.width = '0%';
-            document.getElementById('micLed').className = "w-2.5 h-2.5 rounded-full bg-slate-600";
-            document.getElementById('micStatusLabel').textContent = "OFFLINE";
-            document.getElementById('micStatusLabel').className = "text-xs font-mono-tech text-slate-400";
-
-            const btn = document.getElementById('micActionBtn');
-            if (recognizer || isVolumeDemo) {
-                btn.disabled = false;
-                btn.textContent = isVolumeDemo ? "🎙️ STARTA VOLYM-DEMO & SPEL" : "🎙️ STARTA MICK & SPEL";
-                btn.className = "px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition cursor-pointer";
-            }
-        }
-
-        async function startAudioLevelMeter() {
-            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioMeterCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const src = audioMeterCtx.createMediaStreamSource(micStream);
-            audioAnalyser = audioMeterCtx.createAnalyser();
-            audioAnalyser.fftSize = 256;
-            src.connect(audioAnalyser);
-
-            const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
-            const updateMeter = () => {
-                if (!micStream) return;
-                audioAnalyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                const avg = sum / dataArray.length;
-                const levelPct = Math.min(100, Math.round((avg / 65) * 100));
-                document.getElementById('micLevelBar').style.width = levelPct + '%';
-
-                // Om Volym-demo är aktivt, simulera sannolikheter utifrån ljudnivån
-                if (isVolumeDemo && isListening) {
-                    const upProb = Math.min(0.99, Math.max(0.01, (avg - 10) / 40));
-                    processScores([upProb, 1 - upProb]);
-                }
-
-                meterAnimId = requestAnimationFrame(updateMeter);
-            };
-            meterAnimId = requestAnimationFrame(updateMeter);
-        }
-
-        function processScores(scores) {
-            let winningAction = 'NEUTRAL';
-            let highestProb = 0;
-
-            scores.forEach((prob, idx) => {
-                const pct = Math.round(prob * 100);
-                const label = classLabels[idx];
-                const action = classActions[label] || 'NEUTRAL';
-                const pctEl = document.getElementById(`barPct-${idx}`);
-                const fillEl = document.getElementById(`barFill-${idx}`);
-
-                if (pctEl && fillEl) {
-                    pctEl.textContent = pct + '%';
-                    fillEl.style.width = pct + '%';
-
-                    const passed = prob >= confidenceThreshold && action !== 'NEUTRAL';
-                    if (passed) {
-                        if (action === 'UP') fillEl.className = "h-full bg-[#00ff88] shadow-[0_0_12px_#00ff88] transition-all duration-75";
-                        else if (action === 'DOWN') fillEl.className = "h-full bg-amber-400 shadow-[0_0_12px_#fbbf24] transition-all duration-75";
-                        else if (action === 'SHIELD') fillEl.className = "h-full bg-purple-400 shadow-[0_0_12px_#c084fc] transition-all duration-75";
-
-                        if (prob > highestProb) {
-                            highestProb = prob;
-                            winningAction = action;
-                        }
-                    } else if (action !== 'NEUTRAL') {
-                        fillEl.className = "h-full bg-cyan-400 transition-all duration-75";
-                    } else {
-                        fillEl.className = "h-full bg-slate-600 transition-all duration-75";
-                    }
-                }
-            });
-
-            if (winningAction === 'SHIELD') {
-                shieldTimerMs = 2500; // Aktivera sköld/boost i 2.5 sekunder
-            }
-
-            activeAction = winningAction;
-            updateHudCommand(activeAction);
-        }
-
-        function updateHudCommand(action) {
-            const pill = document.getElementById('hudCommandPill');
-            if (action === 'UP') {
-                pill.className = "px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400 font-orbitron text-xs font-bold text-emerald-300";
-                pill.textContent = "KOMMANDO: 🚀 FLYG UPP";
-            } else if (action === 'DOWN') {
-                pill.className = "px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400 font-orbitron text-xs font-bold text-amber-300";
-                pill.textContent = "KOMMANDO: ⬇️ FLYG NER";
-            } else if (action === 'SHIELD') {
-                pill.className = "px-3 py-1.5 rounded-xl bg-purple-500/20 border border-purple-400 font-orbitron text-xs font-bold text-purple-300";
-                pill.textContent = "KOMMANDO: 🛡️ SKÖLD / BOOST";
-            } else {
-                pill.className = "px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 font-orbitron text-xs font-bold text-slate-400";
-                pill.textContent = "KOMMANDO: NEUTRAL";
-            }
-        }
-
-        // ---------------------------------------------------------
-        // 7. SPELMOTOR (HTML5 CANVAS - ORBITAL ESCAPE)
-        // ---------------------------------------------------------
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        let gameLoopId = null;
-        let lastFrameTime = 0;
-        let gameState = 'IDLE'; // 'IDLE', 'PLAYING', 'GAMEOVER'
-        let score = 0;
-        let highScore = parseInt(localStorage.getItem('orbital_escape_hs_v2') || '0');
-        document.getElementById('highScoreText').textContent = highScore;
-
-        const speedProfiles = {
-            slow:   { speed: 2.4, spawnMs: 2200, lift: -0.34, dive: 0.34, drag: 0.92, gap: 165 },
-            normal: { speed: 3.5, spawnMs: 1700, lift: -0.44, dive: 0.44, drag: 0.91, gap: 145 },
-            fast:   { speed: 4.9, spawnMs: 1250, lift: -0.54, dive: 0.54, drag: 0.90, gap: 130 }
-        };
-        let currentSpeed = 'slow';
-
-        let ship = { x: 100, y: 240, vy: 0, radius: 16, tilt: 0 };
-        let laserGates = [];
-        let asteroids = [];
-        let flames = [];
-        let starLayers = [];
-        let spawnTimerMs = 0;
-
-        function resizeCanvas() {
-            const box = document.getElementById('arenaContainer');
-            canvas.width = box.clientWidth;
-            canvas.height = box.clientHeight;
-            if (starLayers.length === 0) initParallaxStars();
-            if (gameState !== 'PLAYING') {
-                ship.y = canvas.height / 2;
-                renderFrame();
-            }
-        }
-
-        window.addEventListener('resize', resizeCanvas);
-        window.onload = function() {
-            resizeCanvas();
-            renderFrame();
+        localModelPayload = {
+          modelTopology: modelJson.modelTopology,
+          weightSpecs: weightSpecs,
+          weightData: weightData,
+          format: modelJson.format,
+          generatedBy: modelJson.generatedBy,
+          convertedBy: modelJson.convertedBy
         };
 
-        function initParallaxStars() {
-            starLayers = [];
-            for (let i = 0; i < 80; i++) {
-                const layer = i % 3; // 0 = fjärran, 1 = mellan, 2 = nära
-                starLayers.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: layer === 2 ? 2.4 : (layer === 1 ? 1.5 : 0.9),
-                    speedMult: layer === 2 ? 0.75 : (layer === 1 ? 0.4 : 0.18),
-                    color: layer === 2 ? '#a5f3fc' : '#94a3b8'
-                });
-            }
-        }
+        recognizer = speechCommands.create(
+          'BROWSER_FFT',
+          undefined,
+          'local-tm://model.json',
+          metadataJson
+        );
 
-        function setFlightSpeed(key) {
-            currentSpeed = key;
-            ['slow', 'normal', 'fast'].forEach(k => {
-                const btn = document.getElementById('btnSpeed' + k.charAt(0).toUpperCase() + k.slice(1));
-                if (k === key) {
-                    btn.className = "px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer";
+        await recognizer.ensureModelLoaded();
+        onModelReady(recognizer.wordLabels(), 'LOKAL MODELL AKTIV');
+      } catch (err) {
+        console.error('Fel vid laddning av lokal ljudmodell:', err);
+        alert('Fel vid laddning av ljudmodell: ' + err.message);
+        setGlobalStatus('FEL VID LADDNING', 'red');
+      }
+    }
+
+    async function loadUrlAudioModel() {
+      let url = document.getElementById('modelUrlInput').value.trim();
+      if (!url) return alert('Klistra in en URL från Teachable Machine först.');
+      if (!url.endsWith('/')) url += '/';
+
+      setGlobalStatus('HÄMTAR FRÅN LÄNK...', 'amber');
+      try {
+        if (isListening && recognizer) {
+          await recognizer.stopListening();
+          isListening = false;
+        }
+        recognizer = speechCommands.create(
+          'BROWSER_FFT',
+          undefined,
+          url + 'model.json',
+          url + 'metadata.json'
+        );
+        await recognizer.ensureModelLoaded();
+        onModelReady(recognizer.wordLabels(), 'MOLNMODELL AKTIV');
+      } catch (err) {
+        console.error(err);
+        alert('Kunde inte ladda modellen från länken. Kontrollera att länken är publik.');
+        setGlobalStatus('LÄNKFEL', 'red');
+      }
+    }
+
+    function onModelReady(labels, statusText) {
+      modelLabels = labels;
+      document.getElementById('modelBadge').textContent = labels.length + ' KLASSER';
+      document.getElementById('modelBadge').className = 'text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/50';
+      document.getElementById('btnToggleMic').disabled = false;
+      setGlobalStatus(statusText + ' — REDO ATT STARTA MIKROFON', 'green');
+
+      populateClassSelectors(labels);
+      buildPredictionBars(labels);
+    }
+
+    function populateClassSelectors(labels) {
+      const selects = document.querySelectorAll('.class-select');
+      selects.forEach(sel => {
+        sel.innerHTML = '<option value="">-- Ingen vald --</option>';
+        labels.forEach(lbl => {
+          const opt = document.createElement('option');
+          opt.value = lbl;
+          opt.textContent = lbl;
+          sel.appendChild(opt);
+        });
+      });
+
+      // Automatisk smart-matchning baserat på klassnamn
+      const autoMatch = (selectId, keywords) => {
+        const sel = document.getElementById(selectId);
+        const match = labels.find(l => keywords.some(k => l.toLowerCase().includes(k)));
+        if (match) sel.value = match;
+      };
+
+      autoMatch('map-up', ['upp', 'up', 'fram', 'norr']);
+      autoMatch('map-down', ['ned', 'ner', 'down', 'bak', 'söder']);
+      autoMatch('map-left', ['vänster', 'vanster', 'left', 'väst']);
+      autoMatch('map-right', ['höger', 'hoger', 'right', 'öst']);
+      autoMatch('map-stop', ['stanna', 'stop', 'stopp', 'halt', 'tyst']);
+    }
+
+    function buildPredictionBars(labels) {
+      const container = document.getElementById('predictionBars');
+      container.innerHTML = '';
+      labels.forEach((lbl, idx) => {
+        const row = document.createElement('div');
+        row.innerHTML = `
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-slate-200 truncate">${lbl}</span>
+            <span id="prob-text-${idx}" class="text-slate-400">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            <div id="prob-bar-${idx}" class="h-full bg-cyan-400 transition-all duration-100" style="width: 0%"></div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    async function toggleListening() {
+      const btn = document.getElementById('btnToggleMic');
+      if (!recognizer) return;
+
+      if (!isListening) {
+        try {
+          await recognizer.listen(result => {
+            const scores = result.scores;
+            const threshold = parseInt(document.getElementById('thresholdSlider').value, 10) / 100;
+
+            let bestIdx = 0;
+            for (let i = 1; i < scores.length; i++) {
+              if (scores[i] > scores[bestIdx]) bestIdx = i;
+            }
+
+            // Uppdatera staplar
+            scores.forEach((score, idx) => {
+              const pct = Math.round(score * 100);
+              const txt = document.getElementById(`prob-text-${idx}`);
+              const bar = document.getElementById(`prob-bar-${idx}`);
+              if (txt && bar) {
+                txt.textContent = pct + '%';
+                bar.style.width = pct + '%';
+                if (idx === bestIdx && score >= threshold) {
+                  bar.className = 'h-full bg-emerald-400 transition-all duration-100';
                 } else {
-                    btn.className = "px-2.5 py-1 rounded text-slate-400 hover:text-white cursor-pointer";
+                  bar.className = 'h-full bg-cyan-500/60 transition-all duration-100';
                 }
-            });
-        }
-
-        // Tangentbord & Mus/Touch reservstyrning
-        window.addEventListener('keydown', e => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') {
-                e.preventDefault();
-                manualThrust = true;
-            }
-        });
-        window.addEventListener('keyup', e => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') {
-                manualThrust = false;
-            }
-        });
-        canvas.addEventListener('mousedown', () => { manualThrust = true; });
-        canvas.addEventListener('mouseup', () => { manualThrust = false; });
-        canvas.addEventListener('touchstart', e => { e.preventDefault(); manualThrust = true; }, { passive: false });
-        canvas.addEventListener('touchend', () => { manualThrust = false; });
-
-        function startMission() {
-            document.getElementById('arenaOverlay').classList.add('hidden');
-            score = 0;
-            document.getElementById('scoreText').textContent = '0';
-            ship.x = Math.min(110, canvas.width * 0.22);
-            ship.y = canvas.height / 2;
-            ship.vy = 0;
-            ship.tilt = 0;
-            laserGates = [];
-            asteroids = [];
-            flames = [];
-            spawnTimerMs = 0;
-            shieldTimerMs = 0;
-            gameState = 'PLAYING';
-            lastFrameTime = performance.now();
-
-            if (gameLoopId) cancelAnimationFrame(gameLoopId);
-            gameLoopId = requestAnimationFrame(updateGame);
-        }
-
-        function endMission() {
-            gameState = 'GAMEOVER';
-            playSfx(120, 'sawtooth', 0.45, 0.08);
-
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('orbital_escape_hs_v2', highScore.toString());
-                document.getElementById('highScoreText').textContent = highScore;
-            }
-
-            document.getElementById('overlayEmoji').textContent = '💥';
-            document.getElementById('overlayHeading').textContent = 'GAME OVER // SKROVBROTT';
-            document.getElementById('overlayHeading').className = 'font-orbitron text-2xl sm:text-3xl font-black text-[#ff2a5f] tracking-wider';
-            document.getElementById('overlayDesc').innerHTML = `Uppdraget avbröts! Du passerade <strong class="text-cyan-300">${score}</strong> hinderzoner.`;
-            document.getElementById('overlayStartBtn').textContent = '🔄 FÖRSÖK IGEN';
-            document.getElementById('arenaOverlay').classList.remove('hidden');
-        }
-
-        function spawnHazard() {
-            const prof = speedProfiles[currentSpeed];
-            // Var tredje gång skapas en asteroid-svärm, annars en laserbarriär
-            if (Math.random() < 0.35) {
-                const count = 2 + Math.floor(Math.random() * 2);
-                for (let i = 0; i < count; i++) {
-                    asteroids.push({
-                        x: canvas.width + 40 + i * 70,
-                        y: 45 + Math.random() * (canvas.height - 90),
-                        radius: 16 + Math.random() * 14,
-                        rot: Math.random() * Math.PI * 2,
-                        rotSpeed: (Math.random() - 0.5) * 0.05,
-                        passed: false
-                    });
-                }
-            } else {
-                const margin = 50;
-                const maxTop = canvas.height - prof.gap - margin;
-                const gapTop = Math.max(margin, Math.random() * maxTop);
-                laserGates.push({
-                    x: canvas.width + 40,
-                    width: 38,
-                    gapTop: gapTop,
-                    gapBottom: gapTop + prof.gap,
-                    passed: false
-                });
-            }
-        }
-
-        function emitJetFlames(isBoosted) {
-            for (let i = 0; i < 2; i++) {
-                flames.push({
-                    x: ship.x - 18,
-                    y: ship.y + (Math.random() * 8 - 4),
-                    vx: -Math.random() * 3.5 - 2.2,
-                    vy: (Math.random() - 0.5) * 1.4,
-                    life: 1.0,
-                    color: isBoosted ? '#c084fc' : (Math.random() > 0.4 ? '#00f3ff' : '#00ff88')
-                });
-            }
-        }
-
-        function updateGame(now) {
-            if (gameState !== 'PLAYING') return;
-            const dt = Math.min(50, now - lastFrameTime);
-            lastFrameTime = now;
-
-            const prof = speedProfiles[currentSpeed];
-
-            // Sköld-nedräkning
-            if (shieldTimerMs > 0) {
-                shieldTimerMs = Math.max(0, shieldTimerMs - dt);
-                document.getElementById('shieldIndicator').classList.remove('hidden');
-            } else {
-                document.getElementById('shieldIndicator').classList.add('hidden');
-            }
-
-            // Skeppets styrning: Flyg UPP / Flyg NER / Neutral (mjuk glidning + lätt gravitation)
-            const thrustUp = (activeAction === 'UP' || manualThrust);
-            const diveDown = (activeAction === 'DOWN');
-
-            if (thrustUp) {
-                ship.vy += prof.lift;
-                emitJetFlames(shieldTimerMs > 0);
-            } else if (diveDown) {
-                ship.vy += prof.dive;
-                emitJetFlames(false);
-            } else {
-                // Mjuk svävning med svag nedåtdrift så man måste styra genom portarna
-                ship.vy = ship.vy * prof.drag + 0.09;
-                if (Math.random() < 0.35) emitJetFlames(shieldTimerMs > 0);
-            }
-
-            ship.vy = Math.max(-6.0, Math.min(6.0, ship.vy));
-            ship.y += ship.vy;
-            ship.tilt = Math.max(-0.42, Math.min(0.42, ship.vy * 0.075));
-
-            // Håll skeppet innanför tak & golv
-            if (ship.y - ship.radius < 12) {
-                ship.y = 12 + ship.radius;
-                ship.vy = 0;
-            } else if (ship.y + ship.radius > canvas.height - 12) {
-                ship.y = canvas.height - 12 - ship.radius;
-                ship.vy = 0;
-            }
-
-            // Spawna hinder
-            spawnTimerMs += dt;
-            if (spawnTimerMs >= prof.spawnMs) {
-                spawnHazard();
-                spawnTimerMs = 0;
-            }
-
-            const moveSpeed = shieldTimerMs > 0 ? prof.speed * 1.35 : prof.speed;
-
-            // Uppdatera Laserbarriärer
-            for (let i = laserGates.length - 1; i >= 0; i--) {
-                const g = laserGates[i];
-                g.x -= moveSpeed;
-
-                if (!g.passed && g.x + g.width < ship.x) {
-                    g.passed = true;
-                    score++;
-                    document.getElementById('scoreText').textContent = score;
-                    playSfx(780, 'sine', 0.09, 0.04);
-                }
-
-                // Kollision (ignoreras om sköld är aktiv)
-                if (shieldTimerMs <= 0) {
-                    const inX = (ship.x + ship.radius - 4 > g.x) && (ship.x - ship.radius + 4 < g.x + g.width);
-                    const hitTop = ship.y - ship.radius + 4 < g.gapTop;
-                    const hitBot = ship.y + ship.radius - 4 > g.gapBottom;
-                    if (inX && (hitTop || hitBot)) {
-                        endMission();
-                        renderFrame();
-                        return;
-                    }
-                }
-
-                if (g.x + g.width < -50) laserGates.splice(i, 1);
-            }
-
-            // Uppdatera Asteroider
-            for (let i = asteroids.length - 1; i >= 0; i--) {
-                const a = asteroids[i];
-                a.x -= moveSpeed * 1.15;
-                a.rot += a.rotSpeed;
-
-                if (!a.passed && a.x + a.radius < ship.x) {
-                    a.passed = true;
-                    score++;
-                    document.getElementById('scoreText').textContent = score;
-                }
-
-                if (shieldTimerMs <= 0) {
-                    const dx = ship.x - a.x;
-                    const dy = ship.y - a.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < ship.radius + a.radius - 5) {
-                        endMission();
-                        renderFrame();
-                        return;
-                    }
-                }
-
-                if (a.x + a.radius < -50) asteroids.splice(i, 1);
-            }
-
-            // Parallax-stjärnor & partiklar
-            starLayers.forEach(s => {
-                s.x -= moveSpeed * s.speedMult;
-                if (s.x < 0) {
-                    s.x = canvas.width;
-                    s.y = Math.random() * canvas.height;
-                }
+              }
             });
 
-            for (let i = flames.length - 1; i >= 0; i--) {
-                const p = flames[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life -= 0.045;
-                if (p.life <= 0) flames.splice(i, 1);
+            // Styr roboten om tröskeln uppnås
+            if (scores[bestIdx] >= threshold) {
+              const predictedLabel = modelLabels[bestIdx];
+              handleVoiceCommand(predictedLabel);
             }
+          }, {
+            includeSpectrogram: false,
+            probabilityThreshold: 0.5,
+            invokeCallbackOnNoiseAndUnknown: true,
+            overlapFactor: 0.5
+          });
 
-            renderFrame();
-            gameLoopId = requestAnimationFrame(updateGame);
+          isListening = true;
+          btn.textContent = '⏹️ STOPPA MIKROFON';
+          btn.className = 'sci-btn px-3 py-1.5 rounded bg-rose-500/20 border border-rose-400 text-rose-300 font-sci text-[11px] font-bold';
+          setGlobalStatus('MIKROFON AKTIV — LYSSNAR EFTER KOMMANDON', 'green');
+        } catch (err) {
+          alert('Kunde inte starta mikrofonen. Kontrollera webbläsarens behörigheter: ' + err.message);
         }
+      } else {
+        await recognizer.stopListening();
+        isListening = false;
+        btn.textContent = '🎙️ STARTA MIKROFON';
+        btn.className = 'sci-btn px-3 py-1.5 rounded bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-sci text-[11px] font-bold';
+        setGlobalStatus('MIKROFON PAUSAD', 'amber');
+      }
+    }
 
-        function renderFrame() {
-            // Rymdbakgrund
-            ctx.fillStyle = '#050811';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+    function handleVoiceCommand(label) {
+      if (label === document.getElementById('map-up').value) setRobotDirection('UP');
+      else if (label === document.getElementById('map-down').value) setRobotDirection('DOWN');
+      else if (label === document.getElementById('map-left').value) setRobotDirection('LEFT');
+      else if (label === document.getElementById('map-right').value) setRobotDirection('RIGHT');
+      else if (label === document.getElementById('map-stop').value) setRobotDirection('STOP');
+    }
 
-            // Parallax-stjärnfält
-            starLayers.forEach(s => {
-                ctx.fillStyle = s.color;
-                ctx.globalAlpha = 0.7;
-                ctx.fillRect(s.x, s.y, s.size, s.size);
-            });
-            ctx.globalAlpha = 1.0;
+    // ==========================================
+    // 4. ROBOTARENA & SPELMOTOR
+    // ==========================================
+    const canvas = document.getElementById('arenaCanvas');
+    const ctx = canvas.getContext('2d');
+    const TILE = 50; // 12 x 9 rutnät (600x450)
 
-            // Övre och nedre kraftfält (golv/tak)
-            ctx.fillStyle = 'rgba(0, 243, 255, 0.18)';
-            ctx.fillRect(0, 0, canvas.width, 6);
-            ctx.fillRect(0, canvas.height - 6, canvas.width, 6);
+    const levels = [
+      {
+        start: { x: 1, y: 1 },
+        goal: { x: 10, y: 7 },
+        crystals: [{ x: 4, y: 1 }, { x: 4, y: 6 }, { x: 8, y: 4 }],
+        walls: [
+          { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 2, y: 3 },
+          { x: 6, y: 5 }, { x: 6, y: 6 }, { x: 6, y: 7 }, { x: 6, y: 8 },
+          { x: 8, y: 1 }, { x: 8, y: 2 }, { x: 9, y: 2 }
+        ]
+      },
+      {
+        start: { x: 1, y: 7 },
+        goal: { x: 10, y: 1 },
+        crystals: [{ x: 1, y: 2 }, { x: 6, y: 4 }, { x: 10, y: 6 }],
+        walls: [
+          { x: 3, y: 3 }, { x: 3, y: 4 }, { x: 3, y: 5 }, { x: 3, y: 6 }, { x: 3, y: 7 },
+          { x: 5, y: 1 }, { x: 5, y: 2 }, { x: 5, y: 3 },
+          { x: 8, y: 3 }, { x: 8, y: 4 }, { x: 8, y: 5 }, { x: 8, y: 6 }
+        ]
+      }
+    ];
 
-            // Rita Laserbarriärer
-            laserGates.forEach(g => {
-                drawLaserBarrier(g.x, 0, g.width, g.gapTop, true);
-                drawLaserBarrier(g.x, g.gapBottom, g.width, canvas.height - g.gapBottom, false);
-            });
+    let currentLevelIdx = 0;
+    let robot = { x: 75, y: 75, dir: 'STOP', speed: 1.8 };
+    let activeCrystals = [];
+    let activeWalls = [];
+    let goalTile = { x: 10, y: 7 };
+    let levelWon = false;
 
-            // Rita Asteroider
-            asteroids.forEach(a => drawAsteroid(a));
+    function loadLevel(idx) {
+      const lvl = levels[idx % levels.length];
+      robot.x = lvl.start.x * TILE + TILE / 2;
+      robot.y = lvl.start.y * TILE + TILE / 2;
+      robot.dir = 'STOP';
+      goalTile = { ...lvl.goal };
+      activeCrystals = lvl.crystals.map(c => ({ ...c, collected: false }));
+      activeWalls = lvl.walls.map(w => ({ ...w }));
+      levelWon = false;
 
-            // Rita Jetflammor
-            flames.forEach(p => {
-                ctx.globalAlpha = p.life;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            ctx.globalAlpha = 1.0;
+      document.getElementById('winOverlay').classList.add('hidden');
+      document.getElementById('levelDisplay').textContent = idx + 1;
+      updateCommandLabel();
+      updateCrystalCounter();
+    }
 
-            // Rita Rymdskeppet
-            drawNeonShip();
+    function resetLevel() { loadLevel(currentLevelIdx); }
+    function nextLevel() {
+      currentLevelIdx++;
+      loadLevel(currentLevelIdx);
+    }
+
+    function setRobotDirection(dir) {
+      if (levelWon) return;
+      robot.dir = dir;
+      updateCommandLabel();
+    }
+
+    function updateCommandLabel() {
+      const map = {
+        'UP': ['⬆️ UPP', 'text-cyan-400'],
+        'DOWN': ['⬇️ NED', 'text-cyan-400'],
+        'LEFT': ['⬅️ VÄNSTER', 'text-cyan-400'],
+        'RIGHT': ['➡️ HÖGER', 'text-cyan-400'],
+        'STOP': ['🛑 STANNA', 'text-amber-400']
+      };
+      const el = document.getElementById('activeCommandDisplay');
+      el.textContent = map[robot.dir][0];
+      el.className = 'font-sci text-lg font-bold ' + map[robot.dir][1];
+    }
+
+    function updateCrystalCounter() {
+      const got = activeCrystals.filter(c => c.collected).length;
+      document.getElementById('crystalCount').textContent = `${got} / ${activeCrystals.length}`;
+    }
+
+    // Tangentbordsstöd för testläge
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+        if (document.activeElement.tagName !== 'INPUT') e.preventDefault();
+      }
+      if (e.key === 'ArrowUp') setRobotDirection('UP');
+      else if (e.key === 'ArrowDown') setRobotDirection('DOWN');
+      else if (e.key === 'ArrowLeft') setRobotDirection('LEFT');
+      else if (e.key === 'ArrowRight') setRobotDirection('RIGHT');
+      else if (e.key === ' ') setRobotDirection('STOP');
+    });
+
+    function activateDemoMode() {
+      setGlobalStatus('TESTLÄGE AKTIVT — STYR MED PILTANGENTERNA', 'green');
+    }
+
+    function updatePhysics() {
+      if (levelWon || robot.dir === 'STOP') return;
+
+      let nx = robot.x;
+      let ny = robot.y;
+      if (robot.dir === 'UP') ny -= robot.speed;
+      if (robot.dir === 'DOWN') ny += robot.speed;
+      if (robot.dir === 'LEFT') nx -= robot.speed;
+      if (robot.dir === 'RIGHT') nx += robot.speed;
+
+      const r = 15; // Robotens radie
+
+      // Ytterväggar
+      if (nx - r < 0 || nx + r > canvas.width || ny - r < 0 || ny + r > canvas.height) {
+        robot.dir = 'STOP';
+        updateCommandLabel();
+        return;
+      }
+
+      // Hinderväggar
+      for (const w of activeWalls) {
+        const wx = w.x * TILE, wy = w.y * TILE;
+        if (nx + r > wx && nx - r < wx + TILE && ny + r > wy && ny - r < wy + TILE) {
+          robot.dir = 'STOP';
+          updateCommandLabel();
+          return;
         }
+      }
 
-        function drawLaserBarrier(x, y, w, h, isTop) {
-            if (h <= 0) return;
-            const grad = ctx.createLinearGradient(x, y, x + w, y);
-            grad.addColorStop(0, '#090f1d');
-            grad.addColorStop(0.5, '#17253f');
-            grad.addColorStop(1, '#090f1d');
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, y, w, h);
+      robot.x = nx;
+      robot.y = ny;
 
-            ctx.strokeStyle = 'rgba(0, 243, 255, 0.35)';
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(x, y, w, h);
-
-            // Röd neon-laserspets
-            const tipY = isTop ? y + h - 9 : y;
-            ctx.fillStyle = '#ff2a5f';
-            ctx.shadowColor = '#ff2a5f';
-            ctx.shadowBlur = 14;
-            ctx.fillRect(x - 2, tipY, w + 4, 9);
-            ctx.shadowBlur = 0;
+      // Samla kristaller
+      for (const c of activeCrystals) {
+        if (!c.collected) {
+          const cx = c.x * TILE + TILE / 2;
+          const cy = c.y * TILE + TILE / 2;
+          if (Math.hypot(robot.x - cx, robot.y - cy) < 24) {
+            c.collected = true;
+            updateCrystalCounter();
+          }
         }
+      }
 
-        function drawAsteroid(a) {
-            ctx.save();
-            ctx.translate(a.x, a.y);
-            ctx.rotate(a.rot);
+      // Kontrollera mål
+      const gx = goalTile.x * TILE + TILE / 2;
+      const gy = goalTile.y * TILE + TILE / 2;
+      if (Math.hypot(robot.x - gx, robot.y - gy) < 22) {
+        levelWon = true;
+        robot.dir = 'STOP';
+        document.getElementById('winOverlay').classList.remove('hidden');
+      }
+    }
 
-            ctx.beginPath();
-            const spikes = 8;
-            for (let i = 0; i < spikes; i++) {
-                const angle = (i / spikes) * Math.PI * 2;
-                const r = a.radius * (i % 2 === 0 ? 1.0 : 0.82);
-                const px = Math.cos(angle) * r;
-                const py = Math.sin(angle) * r;
-                if (i === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            }
-            ctx.closePath();
+    function drawArena() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = '#1e293b';
-            ctx.fill();
-            ctx.strokeStyle = '#a855f7';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+      // Rutnät
+      ctx.strokeStyle = 'rgba(0, 243, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += TILE) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += TILE) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
 
-            ctx.restore();
+      // Målfält (Laddningsstation)
+      const gx = goalTile.x * TILE, gy = goalTile.y * TILE;
+      ctx.fillStyle = 'rgba(0, 255, 136, 0.15)';
+      ctx.fillRect(gx + 4, gy + 4, TILE - 8, TILE - 8);
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(gx + 4, gy + 4, TILE - 8, TILE - 8);
+      ctx.fillStyle = '#00ff88';
+      ctx.font = 'bold 10px Orbitron';
+      ctx.textAlign = 'center';
+      ctx.fillText('MÅL', gx + TILE / 2, gy + TILE / 2 + 4);
+
+      // Väggar
+      for (const w of activeWalls) {
+        const wx = w.x * TILE, wy = w.y * TILE;
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(wx + 2, wy + 2, TILE - 4, TILE - 4);
+        ctx.strokeStyle = '#ff2a5f';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(wx + 2, wy + 2, TILE - 4, TILE - 4);
+      }
+
+      // Kristaller
+      for (const c of activeCrystals) {
+        if (c.collected) continue;
+        const cx = c.x * TILE + TILE / 2;
+        const cy = c.y * TILE + TILE / 2;
+        ctx.fillStyle = '#00f3ff';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 10);
+        ctx.lineTo(cx + 8, cy);
+        ctx.lineTo(cx, cy + 10);
+        ctx.lineTo(cx - 8, cy);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Robot
+      ctx.save();
+      ctx.translate(robot.x, robot.y);
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#00f3ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Robotens "öga" / riktningsindikator
+      ctx.fillStyle = robot.dir === 'STOP' ? '#ffae00' : '#00ff88';
+      let ex = 0, ey = 0;
+      if (robot.dir === 'UP') ey = -7;
+      if (robot.dir === 'DOWN') ey = 7;
+      if (robot.dir === 'LEFT') ex = -7;
+      if (robot.dir === 'RIGHT') ex = 7;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function gameLoop() {
+      updatePhysics();
+      drawArena();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ==========================================
+    // 5. UI-HJÄLPARE
+    // ==========================================
+    function switchTab(tab) {
+      ['file', 'url', 'demo'].forEach(t => {
+        document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById('tab-' + t);
+        if (t === tab) {
+          btn.className = 'py-1.5 px-2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold';
+        } else {
+          btn.className = 'py-1.5 px-2 rounded text-slate-400 hover:text-slate-200';
         }
+      });
+    }
 
-        function drawNeonShip() {
-            ctx.save();
-            ctx.translate(ship.x, ship.y);
-            ctx.rotate(ship.tilt);
+    function setGlobalStatus(text, color) {
+      const el = document.getElementById('globalStatus');
+      const styles = {
+        amber: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+        green: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+        red: 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+      };
+      el.className = `px-3 py-1.5 rounded border text-xs font-semibold ${styles[color] || styles.amber}`;
+      el.textContent = 'STATUS: ' + text;
+    }
 
-            // Energisköld om Boost/Sköld är aktiv
-            if (shieldTimerMs > 0) {
-                ctx.beginPath();
-                ctx.arc(0, 0, ship.radius + 9, 0, Math.PI * 2);
-                ctx.strokeStyle = '#c084fc';
-                ctx.lineWidth = 2.5;
-                ctx.shadowColor = '#c084fc';
-                ctx.shadowBlur = 16;
-                ctx.stroke();
-            }
-
-            // Skeppskropp
-            ctx.shadowColor = '#00f3ff';
-            ctx.shadowBlur = 16;
-
-            ctx.beginPath();
-            ctx.moveTo(23, 0);
-            ctx.lineTo(-16, -13);
-            ctx.lineTo(-10, 0);
-            ctx.lineTo(-16, 13);
-            ctx.closePath();
-
-            const grad = ctx.createLinearGradient(-16, 0, 23, 0);
-            grad.addColorStop(0, '#0369a1');
-            grad.addColorStop(1, '#00f3ff');
-            ctx.fillStyle = grad;
-            ctx.fill();
-
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-
-            // Cockpit
-            ctx.shadowBlur = 0;
-            ctx.beginPath();
-            ctx.ellipse(4, 0, 7, 3.8, 0, 0, Math.PI * 2);
-            ctx.fillStyle = '#050811';
-            ctx.fill();
-            ctx.strokeStyle = '#00ff88';
-            ctx.stroke();
-
-            ctx.restore();
-        }
-    </script>
+    // Initiera
+    loadLevel(0);
+    gameLoop();
+  </script>
 </body>
 </html>
